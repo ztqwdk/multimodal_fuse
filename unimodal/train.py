@@ -9,6 +9,7 @@ from timm.data.dataset import ImageDataset
 from timm.data.loader import create_loader
 from timm.data.transforms_factory import create_transform
 
+from transformers import AdamW
 import torch.nn.functional as F
 from tqdm.auto import tqdm
 
