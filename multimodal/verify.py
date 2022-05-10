@@ -39,9 +39,13 @@ if __name__=="__main__":
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     print("Device: ",device)
 
-    train_dataset,  test_dataset = fetch_datasets(config)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=16, num_workers=0, shuffle=True)
+    train_dataset,  test_dataset = fetch_datasets()
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, num_workers=0)
     model = MultiModel(0).to(device)
+    
+    file = torch.load("./temp/features.pt")
+    features = file["feature"].to(device)
+    labels = file["label"].to(device)
 
     pre_dict = torch.load("./models/best.pt")
     model.load_state_dict(pre_dict, strict=False)
@@ -57,6 +61,10 @@ if __name__=="__main__":
         for step, batch in enumerate(test_tqdm):
             input1,input2,input3, label = batch
             # test[label.item()] += 1
+            input1 = input1.to(device)
+            input2 = input2.to(device)
+            input3 = input3.to(device)
+            label = label.to(device)
             output = model(input1,input2,input3)
             output = F.normalize(output, dim=1)
             
@@ -65,15 +73,13 @@ if __name__=="__main__":
             # print(predict)
             val_right_count = predict==label
             val_false_count = predict!=label
-            val_right += sum(val_right_count)
-            val_false += sum(val_false_count)
+            val_right += sum(val_right_count).item()
+            val_false += sum(val_false_count).item()
             val_acc = val_right/(val_right + val_false)
-            val_tqdm.set_postfix(acc=val_acc)
+            test_tqdm.set_postfix(acc=val_acc)
             
         val_acc = val_right/(val_right + val_false)
         print(f'测试集准确率为{val_acc}')
-        print(val_right)
-        print(val_false)
         # print(test)
 
 

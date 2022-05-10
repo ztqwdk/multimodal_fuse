@@ -2,6 +2,7 @@ import torch
 import os
 import numpy as np
 import random
+import argparse
 
 import timm
 from timm.data import create_dataset
@@ -13,11 +14,14 @@ import torch.nn.functional as F
 from tqdm.auto import tqdm
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-train_path = "/home/CASIA4-Thousand/train"
-val_path = "/home/CASIA4-Thousand/val"
-ori_path = "/home/CASIA4-Thousand/ori"
 
-# val_path = "/home/data_iris/val"
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--type", default='face', type=str, help='data type')
+args = parser.parse_args()
+
+train_path = "./"+args.type+"_train"
+val_path = "./"+args.type+"_test"
 
 def set_random_seeds(seed):
     print("Seed: {}".format(seed))
@@ -41,22 +45,22 @@ if __name__=="__main__":
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     print("Device: ",device)
 
-    dataset_val = create_dataset("", root=val_path, transform=create_transform(64) )
+    dataset_val = create_dataset("", root=val_path, transform=create_transform(224) )
 
 
     try:
         # only works if gpu present on machine
-        val_loader = create_loader(dataset_val, (3, 64, 64), 1)
+        val_loader = create_loader(dataset_val, (3, 224, 224), 1)
     except:
-        val_loader = create_loader(dataset_val, (3, 64, 64), 1, use_prefetcher=False)
+        val_loader = create_loader(dataset_val, (3, 224, 224), 1, use_prefetcher=False)
     
-    file = torch.load("./temp/features.pt")
+    file = torch.load("./temp/"+args.type+"_features.pt")
     features = file["feature"].to(device)
     labels = file["label"].to(device)
     
     model = timm.create_model("efficientnet_b0", pretrained=True, num_classes=0, in_chans=3, checkpoint_path="").to(device)
 
-    pre_dict = torch.load("./models/best.pt")
+    pre_dict = torch.load("./models/"+args.type+"_best.pt")
     model.load_state_dict(pre_dict, strict=False)
 
     val_right = 0
@@ -75,18 +79,18 @@ if __name__=="__main__":
             
             logits = (features @ output.T)
             predict = labels[torch.argmax(logits, 0).item()]
+            print(logits[torch.argmax(logits, 0).item()])
             # print(predict)
             val_right_count = predict==label
             val_false_count = predict!=label
-            val_right += sum(val_right_count)
-            val_false += sum(val_false_count)
-            val_acc = val_right/(val_right + val_false)
+            val_right += sum(val_right_count).item()
+            val_false += sum(val_false_count).item()
+            val_acc = val_right//(val_right + val_false)
             val_tqdm.set_postfix(acc=val_acc)
             
         val_acc = val_right/(val_right + val_false)
         print(f'测试集准确率为{val_acc}')
         print(val_right)
-        print(val_false)
         # print(test)
 
 

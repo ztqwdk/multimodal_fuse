@@ -41,9 +41,10 @@ if __name__=="__main__":
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     print("Device: ",device)
     
-    train_dataset,  test_dataset = fetch_datasets(config)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=16, num_workers=0, shuffle=True)
-    model = MultiModel(10000).to(device)
+    train_dataset,  test_dataset = fetch_datasets()
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=8, num_workers=0, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=8, num_workers=0)
+    model = MultiModel(17).to(device)
     # model = model
     optimizer = AdamW(model.parameters(), lr=3e-4, weight_decay=0.01)
     
@@ -51,7 +52,7 @@ if __name__=="__main__":
     
     best_val_acc = 0
     best_epoch = 0
-    for epoch in range(500):
+    for epoch in range(50):
         training_loss = 0
         train_right = 0
         train_false = 0
@@ -61,6 +62,10 @@ if __name__=="__main__":
         # for step, batch in enumerate(train_tqdm):
         for step, batch in enumerate(train_loader):
             input1, input2, input3, label = batch
+            input1 = input1.to(device)
+            input2 = input2.to(device)
+            input3 = input3.to(device)
+            label = label.to(device)
             output = model(input1, input2, input3)
             loss = F.cross_entropy(output, label)
             loss.backward()
@@ -73,11 +78,11 @@ if __name__=="__main__":
             
             train_right_count = predict==label
             train_false_count = predict!=label
-            train_right += sum(train_right_count)
-            train_false += sum(train_false_count)
+            train_right += sum(train_right_count).item()
+            train_false += sum(train_false_count).item()
             training_loss += loss.item()
             # train_tqdm.set_postfix(loss=loss.item())
-        
+        # print(train_right)
         if epoch % 10 == 0:
             print(f'epoch为{epoch}, 训练loss为{training_loss/len(train_loader)}')
             print(f'训练集准确率为{train_right/(train_right+train_false)}')
@@ -86,18 +91,22 @@ if __name__=="__main__":
             
             model.eval()
             with torch.no_grad():
-                val_tqdm = tqdm(val_loader)
-                for step, batch in enumerate(val_tqdm):
+                test_tqdm = tqdm(test_loader)
+                for step, batch in enumerate(test_tqdm):
                 # for step, batch in enumerate(val_loader):
-                    input, label = batch
-                    output = model(input)
+                    input1, input2, input3, label = batch
+                    input1 = input1.to(device)
+                    input2 = input2.to(device)
+                    input3 = input3.to(device)
+                    label = label.to(device)
+                    output = model(input1, input2, input3)
                     loss = F.cross_entropy(output, label)
 
                     predict = torch.argmax(output, 1)
                     val_right_count = predict==label
                     val_false_count = predict!=label
-                    val_right += sum(val_right_count)
-                    val_false += sum(val_false_count)
+                    val_right += sum(val_right_count).item()
+                    val_false += sum(val_false_count).item()
                 val_acc = val_right/(val_right + val_false)
                     
             if val_acc > best_val_acc:
